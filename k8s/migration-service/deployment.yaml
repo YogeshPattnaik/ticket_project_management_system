@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: migration-service
+  labels:
+    app: migration-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: migration-service
+  template:
+    metadata:
+      labels:
+        app: migration-service
+    spec:
+      containers:
+      - name: migration-service
+        image: task-system/migration-service:latest
+        ports:
+        - containerPort: 3004
+        env:
+        - name: PORT
+          value: "3004"
+        - name: POSTGRES_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: postgres-url
+        - name: MONGODB_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: mongodb-url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: migration-service
+spec:
+  selector:
+    app: migration-service
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3004
+  type: ClusterIP
+

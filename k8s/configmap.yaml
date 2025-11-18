@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  ALLOWED_ORIGINS: "http://localhost:3000,https://taskmanagement.example.com"
+  LOG_LEVEL: "info"
+  API_VERSION: "v1"
+

@@ -1,0 +1,89 @@
+_format_version: "3.0"
+
+services:
+  - name: auth-service
+    url: http://auth-service:3001
+    routes:
+      - name: auth-v1
+        paths:
+          - /api/v1/auth
+        strip_path: false
+      - name: users-v1
+        paths:
+          - /api/v1/users
+        strip_path: false
+      - name: roles-v1
+        paths:
+          - /api/v1/roles
+        strip_path: false
+
+  - name: project-service
+    url: http://project-service:3002
+    routes:
+      - name: projects-v1
+        paths:
+          - /api/v1/projects
+        strip_path: false
+      - name: tasks-v1
+        paths:
+          - /api/v1/tasks
+        strip_path: false
+      - name: boards-v1
+        paths:
+          - /api/v1/boards
+        strip_path: false
+      - name: workflows-v1
+        paths:
+          - /api/v1/workflows
+        strip_path: false
+      - name: slas-v1
+        paths:
+          - /api/v1/slas
+        strip_path: false
+
+  - name: notification-service
+    url: http://notification-service:3003
+    routes:
+      - name: notifications-v1
+        paths:
+          - /api/v1/notifications
+        strip_path: false
+
+  - name: migration-service
+    url: http://migration-service:3004
+    routes:
+      - name: migrations-v1
+        paths:
+          - /api/v1/migrations
+        strip_path: false
+
+plugins:
+  - name: rate-limiting
+    config:
+      minute: 100
+      hour: 1000
+      policy: local
+
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - Authorization
+      exposed_headers:
+        - X-Auth-Token
+      credentials: true
+      max_age: 3600
+

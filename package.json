@@ -1,0 +1,50 @@
+{
+  "name": "enterprise-task-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise-grade task management system with microfrontends and microservices",
+  "workspaces": [
+    "backend/*",
+    "frontend/*",
+    "shared-libs/*"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "build:all": "npm run build --workspaces --if-present",
+    "dev:all": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:backend": "concurrently \"npm run start:dev --workspace=backend/auth-service\" \"npm run start:dev --workspace=backend/project-service\" \"npm run start:dev --workspace=backend/notification-service\" \"npm run start:dev --workspace=backend/migration-service\"",
+    "dev:frontend": "concurrently \"npm run dev --workspace=frontend/shell-app\" \"npm run dev --workspace=frontend/auth-mfe\" \"npm run dev --workspace=frontend/workspace-mfe\" \"npm run dev --workspace=frontend/analytics-mfe\" \"npm run dev --workspace=frontend/admin-mfe\"",
+    "dev:auth": "npm run start:dev --workspace=backend/auth-service",
+    "dev:project": "npm run start:dev --workspace=backend/project-service",
+    "dev:notification": "npm run start:dev --workspace=backend/notification-service",
+    "dev:migration": "npm run start:dev --workspace=backend/migration-service",
+    "dev:shell": "npm run dev --workspace=frontend/shell-app",
+    "dev:auth-mfe": "npm run dev --workspace=frontend/auth-mfe",
+    "dev:workspace-mfe": "npm run dev --workspace=frontend/workspace-mfe",
+    "dev:analytics-mfe": "npm run dev --workspace=frontend/analytics-mfe",
+    "dev:admin-mfe": "npm run dev --workspace=frontend/admin-mfe",
+    "test:all": "npm run test --workspaces --if-present",
+    "lint:all": "npm run lint --workspaces --if-present",
+    "format:all": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "npm run install:all && npm run prisma:generate && npm run build:all",
+    "prisma:generate": "node generate-prisma-clients.js",
+    "prisma:generate:manual": "cd backend/auth-service && npx prisma generate && cd ../project-service && npx prisma generate && cd ../..",
+    "setup:env": "node setup-env-files.js",
+    "update:postgres": "node update-postgres-uri.js",
+    "update:mongo": "node update-mongodb-uri.js",
+    "update:databases": "node update-all-databases.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
+

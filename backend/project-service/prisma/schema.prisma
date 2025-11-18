@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+model Project {
+  id             String   @id @default(uuid())
+  name           String   @db.VarChar(255)
+  description    String?  @db.Text
+  settings       Json     @default("{}")
+  organizationId String   @map("organization_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tasks     Task[]
+  boards    KanbanBoard[]
+  workflows Workflow[]
+  slas      SLA[]
+
+  @@map("projects")
+}
+
+model Task {
+  id           String   @id @default(uuid())
+  title        String   @db.VarChar(500)
+  description  String?  @db.Text
+  status       String   @default("todo") @db.VarChar(50)
+  priority     Int      @default(0)
+  customFields Json     @default("{}") @map("custom_fields")
+  projectId    String   @map("project_id")
+  assigneeId   String?  @map("assignee_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  history  TaskHistory[]
+
+  @@index([projectId, status])
+  @@index([assigneeId])
+  @@index([customFields], type: Gin)
+  @@map("tasks")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model TaskHistory {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  field     String   @db.VarChar(100)
+  oldValue  String?  @db.Text
+  newValue  String?  @db.Text
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_history")
+}
+
+model KanbanBoard {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(255)
+  projectId String   @map("project_id")
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columns BoardColumn[]
+
+  @@map("kanban_boards")
+}
+
+model BoardColumn {
+  id        String   @id @default(uuid())
+  boardId   String   @map("board_id")
+  name      String   @db.VarChar(100)
+  statuses  Json     // Array of status strings
+  limit     Int?
+  color     String   @db.VarChar(7)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  board KanbanBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  @@index([boardId])
+  @@map("board_columns")
+}
+
+model Workflow {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(255)
+  projectId String   @map("project_id")
+  triggers  Json     // Array of Trigger objects
+  conditions Json    // Array of Condition objects
+  actions   Json     // Array of Action objects
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("workflows")
+}
+
+model SLA {
+  id             String   @id @default(uuid())
+  name           String   @db.VarChar(255)
+  priority       String   @db.VarChar(20) // low, medium, high, critical
+  responseTime   Json     // Duration object
+  resolutionTime Json     // Duration object
+  escalationRules Json    // Array of EscalationRule objects
+  projectId      String   @map("project_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("slas")
+}
+

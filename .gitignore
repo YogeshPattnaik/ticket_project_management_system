@@ -1,0 +1,63 @@
+# This is the infrastructure repository
+# Individual modules have their own .gitignore files
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Kubernetes
+*.kubeconfig
+
+# AWS
+.aws/
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation build
+docs/_build/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Prisma
+node_modules/.prisma/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+temp_uri.txt
+nul
+
+# Database
+*.db
+*.sqlite
