@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../entities/user.entity';
 import { CreateUserDto, UpdateUserDto, UserDto } from '@task-management/dto';
 import { Logger } from '@task-management/utils';
 import * as bcrypt from 'bcrypt';
@@ -8,11 +10,14 @@ import * as bcrypt from 'bcrypt';
 export class UsersService {
   private readonly logger = new Logger('UsersService');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>
+  ) {}
 
   async create(dto: CreateUserDto): Promise<UserDto> {
     // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
+    const existingUser = await this.userRepository.findOne({
       where: { email: dto.email },
     });
 
@@ -24,52 +29,39 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
     // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash,
-        profile: (dto.profile || {}) as any,
-        organizationId: dto.organizationId,
-      },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
+    const user = this.userRepository.create({
+      email: dto.email,
+      passwordHash,
+      profile: dto.profile || {},
+      organizationId: dto.organizationId,
+    });
+    const savedUser = await this.userRepository.save(user);
+
+    // Load with relations
+    const userWithRelations = await this.userRepository.findOne({
+      where: { id: savedUser.id },
+      relations: ['userRoles', 'userRoles.role'],
     });
 
-    this.logger.info(`User created: ${user.email}`);
+    this.logger.info(`User created: ${savedUser.email}`);
 
-    return this.mapUserToDto(user);
+    return this.mapUserToDto(userWithRelations || savedUser);
   }
 
   async findAll(organizationId?: string): Promise<UserDto[]> {
-    const users = await this.prisma.user.findMany({
-      where: organizationId ? { organizationId } : undefined,
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
+    const where = organizationId ? { organizationId } : {};
+    const users = await this.userRepository.find({
+      where,
+      relations: ['userRoles', 'userRoles.role'],
     });
 
-    return users.map((user: any) => this.mapUserToDto(user));
+    return users.map((user) => this.mapUserToDto(user));
   }
 
   async findOne(id: string): Promise<UserDto> {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.userRepository.findOne({
       where: { id },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
+      relations: ['userRoles', 'userRoles.role'],
     });
 
     if (!user) {
@@ -80,57 +72,47 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<UserDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-    });
+    const user = await this.userRepository.findOne({ where: { id } });
 
     if (!user) {
       throw new NotFoundException('User', id);
     }
 
-    const updatedUser = await this.prisma.user.update({
-      where: { id },
-      data: {
-        email: dto.email,
-        profile: dto.profile as any,
-      },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
+    if (dto.email) user.email = dto.email;
+    if (dto.profile) user.profile = dto.profile as any;
+
+    const updatedUser = await this.userRepository.save(user);
+
+    // Load with relations
+    const userWithRelations = await this.userRepository.findOne({
+      where: { id: updatedUser.id },
+      relations: ['userRoles', 'userRoles.role'],
     });
 
     this.logger.info(`User updated: ${updatedUser.email}`);
 
-    return this.mapUserToDto(updatedUser);
+    return this.mapUserToDto(userWithRelations || updatedUser);
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-    });
+    const user = await this.userRepository.findOne({ where: { id } });
 
     if (!user) {
       throw new NotFoundException('User', id);
     }
 
-    await this.prisma.user.delete({
-      where: { id },
-    });
+    await this.userRepository.remove(user);
 
     this.logger.info(`User deleted: ${user.email}`);
   }
 
-  private mapUserToDto(user: any): UserDto {
+  private mapUserToDto(user: User): UserDto {
     return {
       id: user.id,
       email: user.email,
       profile: user.profile as Record<string, unknown>,
       organizationId: user.organizationId,
-      roles: user.userRoles.map((ur: any) => ({
+      roles: (user.userRoles || []).map((ur) => ({
         id: ur.role.id,
         name: ur.role.name,
         permissions: ur.role.permissions as any[],
@@ -142,4 +124,3 @@ export class UsersService {
     };
   }
 }
-

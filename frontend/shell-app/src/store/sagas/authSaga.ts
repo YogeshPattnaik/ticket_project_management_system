@@ -4,15 +4,17 @@ import { apiClient } from '@task-management/shared-ui';
 import { LoginDto, RegisterDto, AuthResponseDto } from '@task-management/dto';
 import {
   loginStart,
+  registerStart,
   loginSuccess,
   loginFailure,
+  logout,
   setToken,
 } from '../slices/authSlice';
 
 // Login Saga
-function* loginSaga(action: PayloadAction<LoginDto>) {
+function* loginSaga(action: PayloadAction<{ email: string; password: string }>) {
   try {
-    yield put(loginStart());
+    yield put(loginStart(action.payload));
     const response: { data: AuthResponseDto } = yield call(
       apiClient.post,
       '/api/v1/auth/login',
@@ -41,9 +43,9 @@ function* loginSaga(action: PayloadAction<LoginDto>) {
 }
 
 // Register Saga
-function* registerSaga(action: PayloadAction<RegisterDto>) {
+function* registerSaga(action: PayloadAction<{ email: string; password: string; organizationName?: string }>) {
   try {
-    yield put(loginStart());
+    yield put(registerStart(action.payload));
     const response: { data: AuthResponseDto } = yield call(
       apiClient.post,
       '/api/v1/auth/register',
@@ -107,9 +109,9 @@ function* logoutSaga() {
 }
 
 export default function* authSaga() {
-  yield takeLatest('auth/loginRequest', loginSaga);
-  yield takeLatest('auth/registerRequest', registerSaga);
+  yield takeLatest(loginStart.type, loginSaga);
+  yield takeLatest(registerStart.type, registerSaga);
   yield takeLatest('auth/refreshTokenRequest', refreshTokenSaga);
-  yield takeEvery('auth/logout', logoutSaga);
+  yield takeEvery(logout.type, logoutSaga);
 }
 

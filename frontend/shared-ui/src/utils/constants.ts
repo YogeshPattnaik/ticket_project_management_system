@@ -1,9 +1,13 @@
 // Get API URL - supports multiple environments
 const getApiBaseUrl = (): string => {
   // Check for Vite environment variable
-  if (typeof import !== 'undefined' && import.meta && import.meta.env) {
-    const viteUrl = import.meta.env.VITE_API_URL || import.meta.env.NEXT_PUBLIC_API_URL;
-    if (viteUrl) return viteUrl;
+  try {
+    if (typeof (globalThis as any).import !== 'undefined' && (globalThis as any).import.meta && (globalThis as any).import.meta.env) {
+      const viteUrl = (globalThis as any).import.meta.env.VITE_API_URL || (globalThis as any).import.meta.env.NEXT_PUBLIC_API_URL;
+      if (viteUrl) return viteUrl;
+    }
+  } catch (e) {
+    // Ignore
   }
   
   // Check for Next.js / Node.js environment variable
@@ -27,9 +31,13 @@ export const API_BASE_URL = getApiBaseUrl();
 
 // WebSocket URL
 const getWsUrl = (): string => {
-  if (typeof import !== 'undefined' && import.meta && import.meta.env) {
-    const viteUrl = import.meta.env.VITE_WS_URL || import.meta.env.NEXT_PUBLIC_WS_URL;
-    if (viteUrl) return viteUrl;
+  try {
+    if (typeof (globalThis as any).import !== 'undefined' && (globalThis as any).import.meta && (globalThis as any).import.meta.env) {
+      const viteUrl = (globalThis as any).import.meta.env.VITE_WS_URL || (globalThis as any).import.meta.env.NEXT_PUBLIC_WS_URL;
+      if (viteUrl) return viteUrl;
+    }
+  } catch (e) {
+    // Ignore
   }
   
   if (typeof process !== 'undefined' && process.env) {

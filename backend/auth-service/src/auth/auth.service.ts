@@ -1,8 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service';
+import { User } from '../entities/user.entity';
+import { Organization } from '../entities/organization.entity';
+import { RefreshToken } from '../entities/refresh-token.entity';
 import { LoginDto, RegisterDto, AuthResponseDto } from '@task-management/dto';
 import { Logger } from '@task-management/utils';
 
@@ -11,14 +15,19 @@ export class AuthService {
   private readonly logger = new Logger('AuthService');
 
   constructor(
-    private prisma: PrismaService,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>,
+    @InjectRepository(RefreshToken)
+    private refreshTokenRepository: Repository<RefreshToken>,
     private jwtService: JwtService,
     private configService: ConfigService
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     // Check if user already exists
-    const existingUser = await this.prisma?.user.findUnique({
+    const existingUser = await this.userRepository.findOne({
       where: { email: dto.email },
     });
 
@@ -32,56 +41,70 @@ export class AuthService {
     // Create or get organization
     let organization;
     if (dto.organizationName) {
-      organization = await this.prisma.organization.upsert({
+      organization = await this.organizationRepository.findOne({
         where: { name: dto.organizationName },
-        update: {},
-        create: { name: dto.organizationName },
       });
+      if (!organization) {
+        organization = this.organizationRepository.create({
+          name: dto.organizationName,
+        });
+        organization = await this.organizationRepository.save(organization);
+      }
     } else {
       // Create default organization
-      organization = await this.prisma.organization.create({
-        data: { name: `${dto.email.split('@')[0]} Organization` },
+      organization = this.organizationRepository.create({
+        name: `${dto.email.split('@')[0]} Organization`,
       });
+      organization = await this.organizationRepository.save(organization);
     }
 
     // Create user
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash,
-        organizationId: organization.id,
-      },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
+    const user = this.userRepository.create({
+      email: dto.email,
+      passwordHash,
+      profile: {},
+      organizationId: organization.id,
+    });
+    const savedUser = await this.userRepository.save(user);
+
+    // Load user with relations
+    const userWithRelations = await this.userRepository.findOne({
+      where: { id: savedUser.id },
+      relations: ['userRoles', 'userRoles.role'],
     });
 
     // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email);
+    const accessToken = this.generateAccessToken(savedUser);
+    const refreshToken = await this.generateRefreshToken(savedUser.id);
 
-    this.logger.info(`User registered: ${user.email}`);
+    this.logger.info(`User registered: ${savedUser.email}`);
 
     return {
-      ...tokens,
-      user: this.mapUserToDto(user),
+      user: {
+        id: savedUser.id,
+        email: savedUser.email,
+        profile: savedUser.profile as Record<string, unknown>,
+        organizationId: savedUser.organizationId,
+        roles: (userWithRelations?.userRoles || []).map((ur) => ({
+          id: ur.role.id,
+          name: ur.role.name,
+          permissions: ur.role.permissions as any[],
+          hierarchy: ur.role.hierarchy,
+          organizationId: ur.role.organizationId,
+        })),
+        createdAt: savedUser.createdAt,
+        updatedAt: savedUser.updatedAt,
+      },
+      accessToken,
+      refreshToken: refreshToken.token,
     };
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     // Find user
-    const user = await this.prisma.user.findUnique({
+    const user = await this.userRepository.findOne({
       where: { email: dto.email },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-      },
+      relations: ['userRoles', 'userRoles.role'],
     });
 
     if (!user) {
@@ -95,102 +118,90 @@ export class AuthService {
     }
 
     // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email);
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = await this.generateRefreshToken(user.id);
 
     this.logger.info(`User logged in: ${user.email}`);
 
     return {
-      ...tokens,
-      user: this.mapUserToDto(user),
+      user: {
+        id: user.id,
+        email: user.email,
+        profile: user.profile as Record<string, unknown>,
+        organizationId: user.organizationId,
+        roles: user.userRoles.map((ur) => ({
+          id: ur.role.id,
+          name: ur.role.name,
+          permissions: ur.role.permissions as any[],
+          hierarchy: ur.role.hierarchy,
+          organizationId: ur.role.organizationId,
+        })),
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      accessToken,
+      refreshToken: refreshToken.token,
     };
   }
 
   async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
-    // Verify refresh token
-    let payload;
-    try {
-      payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      });
-    } catch (error) {
+    // Check if token exists in database
+    const tokenRecord = await this.refreshTokenRepository.findOne({
+      where: { token: refreshToken },
+      relations: ['user'],
+    });
+
+    if (!tokenRecord || !tokenRecord.user) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Check if token exists in database
-    const tokenRecord = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true },
-    });
-
-    if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
-      throw new UnauthorizedException('Refresh token expired or invalid');
+    // Check if token is expired
+    if (tokenRecord.expiresAt < new Date()) {
+      await this.refreshTokenRepository.remove(tokenRecord);
+      throw new UnauthorizedException('Refresh token expired');
     }
 
     // Generate new access token
-    const accessToken = this.jwtService.sign(
-      { sub: payload.sub, email: payload.email },
-      {
-        secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '15m',
-      }
-    );
+    const accessToken = this.generateAccessToken(tokenRecord.user);
 
     return { accessToken };
   }
 
   async logout(refreshToken: string): Promise<void> {
-    await this.prisma.refreshToken.deleteMany({
-      where: { token: refreshToken },
+    await this.refreshTokenRepository.delete({ token: refreshToken });
+  }
+
+  private generateAccessToken(user: User): string {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      organizationId: user.organizationId,
+    };
+
+    return this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_SECRET'),
+      expiresIn: '15m',
     });
   }
 
-  private async generateTokens(
-    userId: string,
-    email: string
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload = { sub: userId, email };
+  private async generateRefreshToken(userId: string): Promise<RefreshToken> {
+    const token = this.jwtService.sign(
+      { sub: userId },
+      {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: '7d',
+      }
+    );
 
-    const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '15m',
-    });
-
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
-    });
-
-    // Store refresh token in database
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    await this.prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId,
-        expiresAt,
-      },
+    const refreshToken = this.refreshTokenRepository.create({
+      token,
+      userId,
+      expiresAt,
     });
 
-    return { accessToken, refreshToken };
-  }
-
-  private mapUserToDto(user: any) {
-    return {
-      id: user.id,
-      email: user.email,
-      profile: user.profile as Record<string, unknown>,
-      organizationId: user.organizationId,
-      roles: user.userRoles.map((ur: any) => ({
-        id: ur.role.id,
-        name: ur.role.name,
-        permissions: ur.role.permissions as any[],
-        hierarchy: ur.role.hierarchy,
-        organizationId: ur.role.organizationId,
-      })),
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+    return await this.refreshTokenRepository.save(refreshToken);
   }
 }
-

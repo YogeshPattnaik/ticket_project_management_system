@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Role } from '../entities/role.entity';
+import { UserRole } from '../entities/user-role.entity';
 import { RoleDto, PermissionDto } from '@task-management/dto';
 import { Logger } from '@task-management/utils';
 
@@ -7,7 +10,12 @@ import { Logger } from '@task-management/utils';
 export class RolesService {
   private readonly logger = new Logger('RolesService');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(Role)
+    private roleRepository: Repository<Role>,
+    @InjectRepository(UserRole)
+    private userRoleRepository: Repository<UserRole>
+  ) {}
 
   async create(
     name: string,
@@ -15,32 +23,28 @@ export class RolesService {
     hierarchy: number,
     organizationId: string
   ): Promise<RoleDto> {
-    const role = await this.prisma.role.create({
-      data: {
-        name,
-        permissions: permissions as any,
-        hierarchy,
-        organizationId,
-      },
+    const role = this.roleRepository.create({
+      name,
+      permissions: permissions as any,
+      hierarchy,
+      organizationId,
     });
+    const savedRole = await this.roleRepository.save(role);
 
-    this.logger.info(`Role created: ${role.name}`);
+    this.logger.info(`Role created: ${savedRole.name}`);
 
-    return this.mapRoleToDto(role);
+    return this.mapRoleToDto(savedRole);
   }
 
   async findAll(organizationId?: string): Promise<RoleDto[]> {
-    const roles = await this.prisma.role.findMany({
-      where: organizationId ? { organizationId } : undefined,
-    });
+    const where = organizationId ? { organizationId } : {};
+    const roles = await this.roleRepository.find({ where });
 
-    return roles.map((role: any) => this.mapRoleToDto(role));
+    return roles.map((role) => this.mapRoleToDto(role));
   }
 
   async findOne(id: string): Promise<RoleDto> {
-    const role = await this.prisma.role.findUnique({
-      where: { id },
-    });
+    const role = await this.roleRepository.findOne({ where: { id } });
 
     if (!role) {
       throw new NotFoundException('Role', id);
@@ -55,22 +59,17 @@ export class RolesService {
     permissions?: PermissionDto[],
     hierarchy?: number
   ): Promise<RoleDto> {
-    const role = await this.prisma.role.findUnique({
-      where: { id },
-    });
+    const role = await this.roleRepository.findOne({ where: { id } });
 
     if (!role) {
       throw new NotFoundException('Role', id);
     }
 
-    const updatedRole = await this.prisma.role.update({
-      where: { id },
-      data: {
-        name,
-        permissions: permissions as any,
-        hierarchy,
-      },
-    });
+    if (name) role.name = name;
+    if (permissions) role.permissions = permissions as any;
+    if (hierarchy !== undefined) role.hierarchy = hierarchy;
+
+    const updatedRole = await this.roleRepository.save(role);
 
     this.logger.info(`Role updated: ${updatedRole.name}`);
 
@@ -78,51 +77,36 @@ export class RolesService {
   }
 
   async remove(id: string): Promise<void> {
-    const role = await this.prisma.role.findUnique({
-      where: { id },
-    });
+    const role = await this.roleRepository.findOne({ where: { id } });
 
     if (!role) {
       throw new NotFoundException('Role', id);
     }
 
-    await this.prisma.role.delete({
-      where: { id },
-    });
+    await this.roleRepository.remove(role);
 
     this.logger.info(`Role deleted: ${role.name}`);
   }
 
   async assignRoleToUser(userId: string, roleId: string): Promise<void> {
-    await this.prisma.userRole.upsert({
-      where: {
-        userId_roleId: {
-          userId,
-          roleId,
-        },
-      },
-      update: {},
-      create: {
-        userId,
-        roleId,
-      },
+    const existing = await this.userRoleRepository.findOne({
+      where: { userId, roleId },
     });
+
+    if (!existing) {
+      const userRole = this.userRoleRepository.create({ userId, roleId });
+      await this.userRoleRepository.save(userRole);
+    }
 
     this.logger.info(`Role ${roleId} assigned to user ${userId}`);
   }
 
   async removeRoleFromUser(userId: string, roleId: string): Promise<void> {
-    await this.prisma.userRole.deleteMany({
-      where: {
-        userId,
-        roleId,
-      },
-    });
-
+    await this.userRoleRepository.delete({ userId, roleId });
     this.logger.info(`Role ${roleId} removed from user ${userId}`);
   }
 
-  private mapRoleToDto(role: any): RoleDto {
+  private mapRoleToDto(role: Role): RoleDto {
     return {
       id: role.id,
       name: role.name,
@@ -132,4 +116,3 @@ export class RolesService {
     };
   }
 }
-

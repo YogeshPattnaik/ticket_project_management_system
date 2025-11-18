@@ -7,12 +7,29 @@ const nextConfig = {
   // Disable module federation for App Router compatibility
   // The shell app will load MFEs via iframes or API integration
   reactStrictMode: true,
-  // Allow loading from different ports in development
+  // Proxy all MFE requests through the shell app
   async rewrites() {
     return [
+      // Proxy auth-mfe (port 3001) through /mfe/auth/*
+      // This includes all assets and routes
       {
-        source: '/mfe/:path*',
-        destination: '/api/mfe/:path*',
+        source: '/mfe/auth/:path*',
+        destination: 'http://localhost:3001/:path*',
+      },
+      // Proxy workspace-mfe (port 3002) through /mfe/workspace/*
+      {
+        source: '/mfe/workspace/:path*',
+        destination: 'http://localhost:3002/:path*',
+      },
+      // Proxy analytics-mfe (port 3003) through /mfe/analytics/*
+      {
+        source: '/mfe/analytics/:path*',
+        destination: 'http://localhost:3003/:path*',
+      },
+      // Proxy admin-mfe (port 3004) through /mfe/admin/*
+      {
+        source: '/mfe/admin/:path*',
+        destination: 'http://localhost:3004/:path*',
       },
     ];
   },

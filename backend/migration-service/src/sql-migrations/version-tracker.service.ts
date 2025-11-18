@@ -16,7 +16,14 @@ export class SqlVersionTrackerService implements IVersionTracker, OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
-    await this.ensureMigrationTable();
+    try {
+      await this.ensureMigrationTable();
+    } catch (error) {
+      this.logger.error('Failed to initialize migration table', error as Error);
+      this.logger.warn('Service will continue but migration operations may fail');
+      // Don't throw - allow service to start even if DB is unavailable
+      // This is useful for development when DB might not be ready
+    }
   }
 
   private async ensureMigrationTable(): Promise<void> {

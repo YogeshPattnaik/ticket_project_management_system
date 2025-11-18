@@ -34,7 +34,11 @@ module.exports = function (options, webpack) {
       new webpack.IgnorePlugin({
         checkResource(resource) {
           // Ignore HTML files from node-pre-gyp
-          if (resource.includes('@mapbox/node-pre-gyp') && resource.endsWith('.html')) {
+          const resourceStr = String(resource);
+          if (resourceStr.includes('@mapbox/node-pre-gyp') && resourceStr.endsWith('.html')) {
+            return true;
+          }
+          if (resourceStr.includes('nw-pre-gyp') && resourceStr.endsWith('.html')) {
             return true;
           }
           return false;
@@ -55,6 +59,10 @@ module.exports = function (options, webpack) {
       rules: [
         ...(options.module?.rules || []),
       ],
+    },
+    node: {
+      __dirname: false,
+      __filename: false,
     },
   };
 };

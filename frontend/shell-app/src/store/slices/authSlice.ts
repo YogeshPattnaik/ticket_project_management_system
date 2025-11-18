@@ -23,7 +23,11 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    loginStart: (state) => {
+    loginStart: (state, action: PayloadAction<{ email: string; password: string }>) => {
+      state.isLoading = true;
+      state.error = null;
+    },
+    registerStart: (state, action: PayloadAction<{ email: string; password: string; organizationName?: string }>) => {
       state.isLoading = true;
       state.error = null;
     },
@@ -65,6 +69,7 @@ const authSlice = createSlice({
 
 export const {
   loginStart,
+  registerStart,
   loginSuccess,
   loginFailure,
   logout,

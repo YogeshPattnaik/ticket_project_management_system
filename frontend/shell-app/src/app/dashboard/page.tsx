@@ -1,10 +1,22 @@
 'use client';
 
-import { Navigation } from '@/components/Navigation';
+import { Header } from '@/components/Header';
 import { useState, useEffect, Suspense } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
+import { useRouter } from 'next/navigation';
 
 function DashboardContent() {
+  const router = useRouter();
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
   const [activeMfe, setActiveMfe] = useState<string>('workspace');
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/');
+    }
+  }, [isAuthenticated, router]);
 
   // Check URL params on client side
   useEffect(() => {
@@ -17,21 +29,25 @@ function DashboardContent() {
     }
   }, []);
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
   const mfeConfig = {
     workspace: {
-      url: 'http://localhost:3002',
+      url: '/mfe/workspace',
       title: 'Workspace',
     },
     auth: {
-      url: 'http://localhost:3001',
+      url: '/mfe/auth',
       title: 'Authentication',
     },
     analytics: {
-      url: 'http://localhost:3003',
+      url: '/mfe/analytics',
       title: 'Analytics',
     },
     admin: {
-      url: 'http://localhost:3004',
+      url: '/mfe/admin',
       title: 'Admin',
     },
   } as const;
@@ -40,7 +56,7 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -86,8 +102,8 @@ function DashboardContent() {
         {/* Info Banner */}
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            <strong>Note:</strong> In development, each microfrontend runs on its own port.
-            They are loaded here via iframe. In production, they will be integrated via module federation.
+            <strong>Note:</strong> All microfrontends are proxied through the shell app on port 3000.
+            Access them via <code className="bg-blue-100 px-1 rounded">/mfe/auth</code>, <code className="bg-blue-100 px-1 rounded">/mfe/workspace</code>, etc.
           </p>
         </div>
       </div>

@@ -44,6 +44,8 @@ export default defineConfig({
   },
   server: {
     port: 3002,
+    // Allow proxying from shell app
+    cors: true,
   },
   define: {
     'process.env': '{}',

@@ -46,62 +46,60 @@ export function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
-        <div>
-          <h2 className="text-3xl font-bold text-center">Create account</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Get started with your free account
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-              {error}
-            </div>
-          )}
-          <Input
-            label="Email address"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-          <Input
-            label="Organization name (optional)"
-            type="text"
-            value={organizationName}
-            onChange={(e) => setOrganizationName(e.target.value)}
-            autoComplete="organization"
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="new-password"
-          />
-          <Input
-            label="Confirm password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            autoComplete="new-password"
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            isLoading={isLoading}
-            className="w-full"
-          >
-            Create account
-          </Button>
-        </form>
+    <div className="w-full space-y-8 p-8">
+      <div>
+        <h2 className="text-3xl font-bold text-center">Create account</h2>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Get started with your free account
+        </p>
       </div>
+      <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+        <Input
+          label="Email address"
+          type="email"
+          value={email}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+        />
+        <Input
+          label="Organization name (optional)"
+          type="text"
+          value={organizationName}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrganizationName(e.target.value)}
+          autoComplete="organization"
+        />
+        <Input
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+        />
+        <Input
+          label="Confirm password"
+          type="password"
+          value={confirmPassword}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+        />
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          isLoading={isLoading}
+          className="w-full"
+        >
+          Create account
+        </Button>
+      </form>
     </div>
   );
 }

@@ -20,7 +20,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@frontend/auth-mfe/*": ["../auth-mfe/src/*"],
+      "@frontend/workspace-mfe/*": ["../workspace-mfe/src/*"],
+      "@frontend/analytics-mfe/*": ["../analytics-mfe/src/*"],
+      "@frontend/admin-mfe/*": ["../admin-mfe/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
