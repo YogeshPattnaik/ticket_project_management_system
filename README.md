@@ -65,13 +65,15 @@ Each service and application is in its own repository:
 
 ## Quick Start
 
+**👋 New to this project?** Start with [GETTING_STARTED.md](./GETTING_STARTED.md) for a complete step-by-step guide.
+
 ### Option 1: Monorepo Mode (Recommended) - 🆓 100% Free
 
 **With Free Cloud Databases (No Docker, No Credit Card Required):**
 ```bash
 # Clone the monorepo
 git clone <repository-url>
-cd enterprise-task-management-system
+cd ticketing_system
 
 # Install all dependencies
 npm install
@@ -84,9 +86,12 @@ npm run setup:env
 # 2. MongoDB Atlas (MongoDB) - FREE forever: https://www.mongodb.com/cloud/atlas
 # 3. Upstash (Redis - optional) - FREE forever: https://upstash.com
 # 
-# See: FREE_TIER_SETUP_GUIDE.md for step-by-step instructions
+# See: GETTING_STARTED.md or FREE_TIER_SETUP_GUIDE.md for step-by-step instructions
 
 # Update .env files with your database connection strings
+
+# Generate Prisma clients
+npm run prisma:generate
 
 # Run all services
 npm run dev:all
@@ -125,8 +130,14 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
 ## Documentation
 
-### 🆓 Free Setup (Start Here!)
-- [FREE_TIER_SETUP_GUIDE.md](./FREE_TIER_SETUP_GUIDE.md) - **⭐ START HERE** - 100% Free setup guide
+### 🚀 Getting Started (New Developers)
+- [GETTING_STARTED.md](./GETTING_STARTED.md) - **⭐ START HERE** - Complete setup guide for new developers
+- [QUICK_START.md](./QUICK_START.md) - Quick start guide
+- [START_HERE.md](./START_HERE.md) - Quick reference guide
+- [HOW_TO_START_APP.md](./HOW_TO_START_APP.md) - Detailed app startup guide
+
+### 🆓 Free Setup
+- [FREE_TIER_SETUP_GUIDE.md](./FREE_TIER_SETUP_GUIDE.md) - 100% Free setup guide
 - [QUICK_CLOUD_SETUP.md](./QUICK_CLOUD_SETUP.md) - Quick 5-minute setup
 - [CLOUD_DATABASE_SETUP_GUIDE.md](./CLOUD_DATABASE_SETUP_GUIDE.md) - Detailed cloud setup
 
