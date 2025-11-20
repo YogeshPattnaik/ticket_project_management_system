@@ -83,7 +83,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 8003;
 httpServer.listen(PORT, () => {
   console.log(`Notification service running on port ${PORT}`);
 });

@@ -24,7 +24,7 @@ const getApiBaseUrl = (): string => {
   
   // Default fallback - point to auth service for now
   // In production, this should be an API Gateway
-  return 'http://localhost:3001';
+  return 'http://localhost:8001';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -50,7 +50,8 @@ const getWsUrl = (): string => {
     if (windowUrl) return windowUrl;
   }
   
-  return 'http://localhost:3003';
+  // Notification service moved to 8003 (3003 used by analytics-mfe frontend)
+  return 'http://localhost:8003';
 };
 
 export const WS_URL = getWsUrl();

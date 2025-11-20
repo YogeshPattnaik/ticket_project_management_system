@@ -12,6 +12,7 @@ export { useWebSocket } from './hooks/useWebSocket';
 // Utils
 export * from './utils/api-client';
 export * from './utils/constants';
+export * from './utils/service-router';
 
 // Types
 export * from './types';

@@ -1,50 +1,59 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import { getServiceUrl, isApiGatewayMode, getApiGatewayUrl } from './service-router';
 
-// Get API URL - supports multiple environments
-const getApiBaseUrl = (): string => {
-  // Check for Vite environment variable
-  try {
-    if (typeof (globalThis as any).import !== 'undefined' && (globalThis as any).import.meta && (globalThis as any).import.meta.env) {
-      const viteUrl = (globalThis as any).import.meta.env.VITE_API_URL || (globalThis as any).import.meta.env.NEXT_PUBLIC_API_URL;
-      if (viteUrl) return viteUrl;
-    }
-  } catch (e) {
-    // Ignore
+// Get API Gateway URL if enabled, otherwise use dynamic routing
+const getApiBaseUrl = (): string | null => {
+  // Check if API Gateway mode is enabled
+  if (isApiGatewayMode()) {
+    return getApiGatewayUrl();
   }
   
-  // Check for Next.js / Node.js environment variable
-  if (typeof process !== 'undefined' && process.env) {
-    const nextUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (nextUrl) return nextUrl;
-  }
-  
-  // Check for browser global (set via script tag or window)
-  if (typeof window !== 'undefined') {
-    const windowUrl = (window as any).__API_URL__ || (window as any).__ENV__?.API_URL;
-    if (windowUrl) return windowUrl;
-  }
-  
-  // Default fallback - point to auth service for now
-  // In production, this should be an API Gateway
-  return 'http://localhost:3001';
+  // In dynamic routing mode, baseURL will be set per request
+  return null;
 };
 
 const API_BASE_URL = getApiBaseUrl();
 
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL || undefined, // Will be set dynamically per request if not using gateway
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and route to correct service
 apiClient.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
+    // Add auth token
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Dynamic service routing (only if not using API Gateway)
+    if (!API_BASE_URL && config.url) {
+      // Get the full URL (baseURL + url)
+      const fullUrl = config.baseURL 
+        ? `${config.baseURL}${config.url.startsWith('/') ? config.url : `/${config.url}`}`
+        : config.url;
+      
+      // Get the correct service URL based on the path
+      const serviceBaseUrl = getServiceUrl(fullUrl);
+      
+      // Update baseURL for this request
+      config.baseURL = serviceBaseUrl;
+      
+      // Ensure URL is relative
+      if (config.url.startsWith('http')) {
+        try {
+          const urlObj = new URL(config.url);
+          config.url = urlObj.pathname + urlObj.search;
+        } catch {
+          // Invalid URL, keep as is
+        }
+      }
+    }
+    
     return config;
   },
   (error) => {
@@ -61,13 +70,17 @@ apiClient.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
-          const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+          // Use dynamic routing for refresh endpoint
+          const refreshServiceUrl = getServiceUrl('/api/v1/auth/refresh');
+          const response = await axios.post(`${refreshServiceUrl}/api/v1/auth/refresh`, {
             refreshToken,
           });
           const { accessToken } = response.data;
           localStorage.setItem('accessToken', accessToken);
-          error.config.headers.Authorization = `Bearer ${accessToken}`;
-          return apiClient.request(error.config);
+          if (error.config) {
+            error.config.headers.Authorization = `Bearer ${accessToken}`;
+            return apiClient.request(error.config);
+          }
         } catch (refreshError) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');

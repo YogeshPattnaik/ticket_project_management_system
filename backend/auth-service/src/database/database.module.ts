@@ -17,6 +17,10 @@ import { RefreshToken } from '../entities/refresh-token.entity';
         entities: [Organization, User, Role, UserRole, RefreshToken],
         synchronize: false, // Use migrations in production
         logging: configService.get<string>('NODE_ENV') === 'development',
+        retryAttempts: 3,
+        retryDelay: 3000,
+        // Don't fail on connection error - allow service to start
+        // Connection will be retried when actually needed
       }),
       inject: [ConfigService],
     }),
