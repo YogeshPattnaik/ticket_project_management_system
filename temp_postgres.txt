@@ -1,0 +1,1 @@
+POSTGRES_URL=postgresql://postgres:Yogi9868@db.lajudvjfcitkebbubash.supabase.co:5432/postgres

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { BoardsModule } from './boards/boards.module';
@@ -13,7 +13,7 @@ import { SlasModule } from './slas/slas.module';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
-    PrismaModule,
+    DatabaseModule,
     ProjectsModule,
     TasksModule,
     BoardsModule,

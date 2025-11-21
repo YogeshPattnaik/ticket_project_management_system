@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { SLA as SLAEntity } from '../entities/sla.entity';
 import { SLA, Priority, Duration, EscalationRule } from '@task-management/interfaces';
 import { Logger } from '@task-management/utils';
 
@@ -7,35 +9,38 @@ import { Logger } from '@task-management/utils';
 export class SlasService {
   private readonly logger = new Logger('SlasService');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(SLAEntity)
+    private slaRepository: Repository<SLAEntity>,
+  ) {}
 
   async create(sla: Omit<SLA, 'id'>): Promise<SLA> {
-    const created = await this.prisma.sLA.create({
-      data: {
-        name: sla.name,
-        priority: sla.priority,
-        responseTime: sla.responseTime as any,
-        resolutionTime: sla.resolutionTime as any,
-        escalationRules: sla.escalationRules as any,
-        projectId: sla.projectId,
-      },
+    const created = this.slaRepository.create({
+      name: sla.name,
+      priority: sla.priority,
+      responseTime: sla.responseTime as any,
+      resolutionTime: sla.resolutionTime as any,
+      escalationRules: sla.escalationRules as any,
+      projectId: sla.projectId,
     });
 
-    this.logger.info(`SLA created: ${created.name}`);
+    const saved = await this.slaRepository.save(created);
+    this.logger.info(`SLA created: ${saved.name}`);
 
-    return this.mapSlaToDto(created);
+    return this.mapSlaToDto(saved);
   }
 
   async findAll(projectId?: string): Promise<SLA[]> {
-    const slas = await this.prisma.sLA.findMany({
-      where: projectId ? { projectId } : undefined,
+    const where = projectId ? { projectId } : {};
+    const slas = await this.slaRepository.find({
+      where,
     });
 
     return slas.map((sla: any) => this.mapSlaToDto(sla));
   }
 
   async findOne(id: string): Promise<SLA> {
-    const sla = await this.prisma.sLA.findUnique({
+    const sla = await this.slaRepository.findOne({
       where: { id },
     });
 

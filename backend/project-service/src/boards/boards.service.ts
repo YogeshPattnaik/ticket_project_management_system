@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { KanbanBoard as KanbanBoardEntity } from '../entities/kanban-board.entity';
+import { BoardColumn as BoardColumnEntity } from '../entities/board-column.entity';
 import { KanbanBoard, Column } from '@task-management/interfaces';
 import { Logger } from '@task-management/utils';
 
@@ -7,58 +10,62 @@ import { Logger } from '@task-management/utils';
 export class BoardsService {
   private readonly logger = new Logger('BoardsService');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(KanbanBoardEntity)
+    private boardRepository: Repository<KanbanBoardEntity>,
+    @InjectRepository(BoardColumnEntity)
+    private columnRepository: Repository<BoardColumnEntity>,
+  ) {}
 
   async createBoard(projectId: string, name: string): Promise<KanbanBoard> {
-    const board = await this.prisma.kanbanBoard.create({
-      data: {
-        name,
-        projectId,
-        settings: {},
-      },
-      include: {
-        columns: {
-          orderBy: {
-            order: 'asc',
-          },
-        },
-      },
+    const board = this.boardRepository.create({
+      name,
+      projectId,
+      settings: {},
     });
 
-    this.logger.info(`Board created: ${board.name}`);
+    const savedBoard = await this.boardRepository.save(board);
+    const boardWithColumns = await this.boardRepository.findOne({
+      where: { id: savedBoard.id },
+      relations: ['columns'],
+    });
 
-    return this.mapBoardToDto(board);
+    if (boardWithColumns && boardWithColumns.columns) {
+      boardWithColumns.columns.sort((a, b) => a.order - b.order);
+    }
+
+    this.logger.info(`Board created: ${savedBoard.name}`);
+
+    return this.mapBoardToDto(boardWithColumns!);
   }
 
   async getBoard(id: string): Promise<KanbanBoard> {
-    const board = await this.prisma.kanbanBoard.findUnique({
+    const board = await this.boardRepository.findOne({
       where: { id },
-      include: {
-        columns: {
-          orderBy: {
-            order: 'asc',
-          },
-        },
-      },
+      relations: ['columns'],
     });
 
     if (!board) {
       throw new NotFoundException('Board', id);
     }
 
+    if (board.columns) {
+      board.columns.sort((a, b) => a.order - b.order);
+    }
+
     return this.mapBoardToDto(board);
   }
 
   async getBoardsByProject(projectId: string): Promise<KanbanBoard[]> {
-    const boards = await this.prisma.kanbanBoard.findMany({
+    const boards = await this.boardRepository.find({
       where: { projectId },
-      include: {
-        columns: {
-          orderBy: {
-            order: 'asc',
-          },
-        },
-      },
+      relations: ['columns'],
+    });
+
+    boards.forEach(board => {
+      if (board.columns) {
+        board.columns.sort((a, b) => a.order - b.order);
+      }
     });
 
     return boards.map((board: any) => this.mapBoardToDto(board));
@@ -68,7 +75,7 @@ export class BoardsService {
     boardId: string,
     column: Omit<Column, 'id' | 'boardId' | 'createdAt' | 'updatedAt'>
   ): Promise<Column> {
-    const board = await this.prisma.kanbanBoard.findUnique({
+    const board = await this.boardRepository.findOne({
       where: { id: boardId },
     });
 
@@ -76,20 +83,19 @@ export class BoardsService {
       throw new NotFoundException('Board', boardId);
     }
 
-    const newColumn = await this.prisma.boardColumn.create({
-      data: {
-        boardId,
-        name: column.name,
-        statuses: column.statuses as any,
-        limit: column.limit,
-        color: column.color,
-        order: column.order,
-      },
+    const newColumn = this.columnRepository.create({
+      boardId,
+      name: column.name,
+      statuses: column.statuses as any,
+      limit: column.limit,
+      color: column.color,
+      order: column.order,
     });
 
-    this.logger.info(`Column added: ${newColumn.name}`);
+    const savedColumn = await this.columnRepository.save(newColumn);
+    this.logger.info(`Column added: ${savedColumn.name}`);
 
-    return this.mapColumnToDto(newColumn);
+    return this.mapColumnToDto(savedColumn);
   }
 
   async updateColumn(
@@ -97,7 +103,7 @@ export class BoardsService {
     columnId: string,
     updates: Partial<Column>
   ): Promise<Column> {
-    const column = await this.prisma.boardColumn.findUnique({
+    const column = await this.columnRepository.findOne({
       where: { id: columnId },
     });
 
@@ -105,22 +111,20 @@ export class BoardsService {
       throw new NotFoundException('Column', columnId);
     }
 
-    const updatedColumn = await this.prisma.boardColumn.update({
-      where: { id: columnId },
-      data: {
-        name: updates.name,
-        statuses: updates.statuses as any,
-        limit: updates.limit,
-        color: updates.color,
-        order: updates.order,
-      },
+    Object.assign(column, {
+      name: updates.name,
+      statuses: updates.statuses as any,
+      limit: updates.limit,
+      color: updates.color,
+      order: updates.order,
     });
 
+    const updatedColumn = await this.columnRepository.save(column);
     return this.mapColumnToDto(updatedColumn);
   }
 
   async deleteColumn(boardId: string, columnId: string): Promise<void> {
-    const column = await this.prisma.boardColumn.findUnique({
+    const column = await this.columnRepository.findOne({
       where: { id: columnId },
     });
 
@@ -128,10 +132,7 @@ export class BoardsService {
       throw new NotFoundException('Column', columnId);
     }
 
-    await this.prisma.boardColumn.delete({
-      where: { id: columnId },
-    });
-
+    await this.columnRepository.remove(column);
     this.logger.info(`Column deleted: ${column.name}`);
   }
 

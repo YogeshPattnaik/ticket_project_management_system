@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { UserDto } from '@task-management/dto';
 
-interface AuthState {
+export interface AuthState {
   user: UserDto | null;
   token: string | null;
   refreshToken: string | null;

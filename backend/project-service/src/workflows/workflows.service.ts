@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Workflow as WorkflowEntity } from '../entities/workflow.entity';
 import { Workflow, Trigger, Condition, Action } from '@task-management/interfaces';
 import { Logger } from '@task-management/utils';
 
@@ -7,35 +9,38 @@ import { Logger } from '@task-management/utils';
 export class WorkflowsService {
   private readonly logger = new Logger('WorkflowsService');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(WorkflowEntity)
+    private workflowRepository: Repository<WorkflowEntity>,
+  ) {}
 
   async create(workflow: Omit<Workflow, 'id'>): Promise<Workflow> {
-    const created = await this.prisma.workflow.create({
-      data: {
-        name: workflow.name,
-        projectId: workflow.projectId,
-        triggers: workflow.triggers as any,
-        conditions: workflow.conditions as any,
-        actions: workflow.actions as any,
-        enabled: true,
-      },
+    const created = this.workflowRepository.create({
+      name: workflow.name,
+      projectId: workflow.projectId,
+      triggers: workflow.triggers as any,
+      conditions: workflow.conditions as any,
+      actions: workflow.actions as any,
+      enabled: true,
     });
 
-    this.logger.info(`Workflow created: ${created.name}`);
+    const saved = await this.workflowRepository.save(created);
+    this.logger.info(`Workflow created: ${saved.name}`);
 
-    return this.mapWorkflowToDto(created);
+    return this.mapWorkflowToDto(saved);
   }
 
   async findAll(projectId?: string): Promise<Workflow[]> {
-    const workflows = await this.prisma.workflow.findMany({
-      where: projectId ? { projectId } : undefined,
+    const where = projectId ? { projectId } : {};
+    const workflows = await this.workflowRepository.find({
+      where,
     });
 
     return workflows.map((wf: any) => this.mapWorkflowToDto(wf));
   }
 
   async findOne(id: string): Promise<Workflow> {
-    const workflow = await this.prisma.workflow.findUnique({
+    const workflow = await this.workflowRepository.findOne({
       where: { id },
     });
 
@@ -47,7 +52,7 @@ export class WorkflowsService {
   }
 
   async execute(workflowId: string, context: Record<string, unknown>): Promise<void> {
-    const workflow = await this.prisma.workflow.findUnique({
+    const workflow = await this.workflowRepository.findOne({
       where: { id: workflowId },
     });
 

@@ -7,6 +7,8 @@ const nextConfig = {
   // Disable module federation for App Router compatibility
   // The shell app will load MFEs via iframes or API integration
   reactStrictMode: true,
+  // Transpile workspace packages
+  transpilePackages: ['@task-management/shared-ui', '@task-management/dto', '@task-management/interfaces', '@task-management/utils'],
   // Proxy all MFE requests through the shell app
   async rewrites() {
     return [

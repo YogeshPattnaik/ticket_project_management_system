@@ -60,28 +60,37 @@ const SERVICE_ROUTES: Array<{ paths: string[]; port: number; name: string }> = [
  * @returns The base URL of the service (e.g., 'http://localhost:8001')
  */
 export const getServiceUrl = (url: string): string => {
+  console.log('🔍 getServiceUrl called with:', url);
+  
   // Extract path from full URL if needed
   let path = url;
   try {
     const urlObj = new URL(url);
     path = urlObj.pathname;
+    console.log('📝 Extracted path from URL:', path);
   } catch {
     // Not a full URL, assume it's a path
     path = url.startsWith('/') ? url : `/${url}`;
+    console.log('📝 Using as path:', path);
   }
 
   // Find matching service route
   for (const route of SERVICE_ROUTES) {
     for (const routePath of route.paths) {
       if (path.startsWith(routePath)) {
-        return getServiceBaseUrl(route.port);
+        const serviceUrl = getServiceBaseUrl(route.port);
+        console.log(`✅ Matched route: ${routePath} -> ${route.name} (port ${route.port})`);
+        console.log(`🌐 Service URL: ${serviceUrl}`);
+        return serviceUrl;
       }
     }
   }
 
   // Default fallback to auth service
-  console.warn(`No service route found for path: ${path}, defaulting to auth service`);
-  return getServiceBaseUrl(SERVICE_PORTS.AUTH);
+  console.warn(`⚠️ No service route found for path: ${path}, defaulting to auth service`);
+  const fallbackUrl = getServiceBaseUrl(SERVICE_PORTS.AUTH);
+  console.log(`🌐 Fallback URL: ${fallbackUrl}`);
+  return fallbackUrl;
 };
 
 /**
@@ -139,6 +148,7 @@ export const isApiGatewayMode = (): boolean => {
 export const getApiGatewayUrl = (): string | null => {
   if (typeof process !== 'undefined' && process.env) {
     const gatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL;
+    console.log('gatewayUrl', gatewayUrl);
     if (gatewayUrl) return gatewayUrl;
   }
   

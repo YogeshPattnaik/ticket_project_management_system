@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Task } from '../entities/task.entity';
+import { TaskHistory } from '../entities/task-history.entity';
 import { CreateTaskDto, UpdateTaskDto, TaskDto } from '@task-management/dto';
 import { Logger } from '@task-management/utils';
 
@@ -7,40 +10,43 @@ import { Logger } from '@task-management/utils';
 export class TasksService {
   private readonly logger = new Logger('TasksService');
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(Task)
+    private taskRepository: Repository<Task>,
+    @InjectRepository(TaskHistory)
+    private taskHistoryRepository: Repository<TaskHistory>,
+  ) {}
 
   async create(dto: CreateTaskDto): Promise<TaskDto> {
-    const task = await this.prisma.task.create({
-      data: {
-        title: dto.title,
-        description: dto.description,
-        status: dto.status || 'todo',
-        priority: dto.priority || 0,
-        customFields: (dto.customFields || {}) as any,
-        projectId: dto.projectId,
-        assigneeId: dto.assigneeId,
-      },
+    const task = this.taskRepository.create({
+      title: dto.title,
+      description: dto.description,
+      status: dto.status || 'todo',
+      priority: dto.priority || 0,
+      customFields: (dto.customFields || {}) as any,
+      projectId: dto.projectId,
+      assigneeId: dto.assigneeId,
     });
 
+    const savedTask = await this.taskRepository.save(task);
+
     // Record history
-    await this.recordHistory(task.id, 'status', null, task.status, dto.assigneeId || 'system');
+    await this.recordHistory(savedTask.id, 'status', null, savedTask.status, dto.assigneeId || 'system');
 
-    this.logger.info(`Task created: ${task.title}`);
+    this.logger.info(`Task created: ${savedTask.title}`);
 
-    return this.mapTaskToDto(task);
+    return this.mapTaskToDto(savedTask);
   }
 
   async findAll(projectId?: string, status?: string): Promise<TaskDto[]> {
-    const tasks = await this.prisma.task.findMany({
-      where: {
-        ...(projectId && { projectId }),
-        ...(status && { status }),
-      },
-      include: {
-        // Project relation available via projectId
-      },
-      orderBy: {
-        createdAt: 'desc',
+    const where: any = {};
+    if (projectId) where.projectId = projectId;
+    if (status) where.status = status;
+
+    const tasks = await this.taskRepository.find({
+      where,
+      order: {
+        createdAt: 'DESC',
       },
     });
 
@@ -48,27 +54,25 @@ export class TasksService {
   }
 
   async findOne(id: string): Promise<TaskDto> {
-    const task = await this.prisma.task.findUnique({
+    const task = await this.taskRepository.findOne({
       where: { id },
-      include: {
-        // Project relation available via projectId
-        comments: {
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
-      },
+      relations: ['comments'],
     });
 
     if (!task) {
       throw new NotFoundException('Task', id);
     }
 
+    // Sort comments by createdAt descending
+    if (task.comments && task.comments.length > 0) {
+      task.comments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    }
+
     return this.mapTaskToDto(task);
   }
 
   async update(id: string, dto: UpdateTaskDto, userId?: string): Promise<TaskDto> {
-    const task = await this.prisma.task.findUnique({
+    const task = await this.taskRepository.findOne({
       where: { id },
     });
 
@@ -81,28 +85,26 @@ export class TasksService {
       await this.recordHistory(id, 'status', task.status, dto.status, userId || 'system');
     }
     if (dto.assigneeId && dto.assigneeId !== task.assigneeId) {
-      await this.recordHistory(id, 'assignee', task.assigneeId, dto.assigneeId, userId || 'system');
+      await this.recordHistory(id, 'assignee', task.assigneeId || null, dto.assigneeId, userId || 'system');
     }
 
-    const updatedTask = await this.prisma.task.update({
-      where: { id },
-      data: {
-        title: dto.title,
-        description: dto.description,
-        status: dto.status,
-        priority: dto.priority,
-        customFields: dto.customFields as any,
-        assigneeId: dto.assigneeId,
-      },
+    Object.assign(task, {
+      title: dto.title,
+      description: dto.description,
+      status: dto.status,
+      priority: dto.priority,
+      customFields: dto.customFields as any,
+      assigneeId: dto.assigneeId,
     });
 
+    const updatedTask = await this.taskRepository.save(task);
     this.logger.info(`Task updated: ${updatedTask.title}`);
 
     return this.mapTaskToDto(updatedTask);
   }
 
   async remove(id: string): Promise<void> {
-    const task = await this.prisma.task.findUnique({
+    const task = await this.taskRepository.findOne({
       where: { id },
     });
 
@@ -110,15 +112,12 @@ export class TasksService {
       throw new NotFoundException('Task', id);
     }
 
-    await this.prisma.task.delete({
-      where: { id },
-    });
-
+    await this.taskRepository.remove(task);
     this.logger.info(`Task deleted: ${task.title}`);
   }
 
   async moveTask(taskId: string, newStatus: string, userId?: string): Promise<TaskDto> {
-    const task = await this.prisma.task.findUnique({
+    const task = await this.taskRepository.findOne({
       where: { id: taskId },
     });
 
@@ -129,10 +128,8 @@ export class TasksService {
     // Record history
     await this.recordHistory(taskId, 'status', task.status, newStatus, userId || 'system');
 
-    const updatedTask = await this.prisma.task.update({
-      where: { id: taskId },
-      data: { status: newStatus },
-    });
+    task.status = newStatus;
+    const updatedTask = await this.taskRepository.save(task);
 
     this.logger.info(`Task moved: ${task.title} -> ${newStatus}`);
 
@@ -146,15 +143,13 @@ export class TasksService {
     newValue: string | null,
     userId: string
   ): Promise<void> {
-    await this.prisma.taskHistory.create({
-      data: {
-        taskId,
-        field,
-        oldValue,
-        newValue,
-        userId,
-      },
-    });
+    const history = new TaskHistory();
+    history.taskId = taskId;
+    history.field = field;
+    history.oldValue = oldValue ?? undefined;
+    history.newValue = newValue ?? undefined;
+    history.userId = userId;
+    await this.taskHistoryRepository.save(history);
   }
 
   private mapTaskToDto(task: any): TaskDto {

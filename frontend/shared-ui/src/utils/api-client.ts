@@ -5,6 +5,8 @@ import { getServiceUrl, isApiGatewayMode, getApiGatewayUrl } from './service-rou
 const getApiBaseUrl = (): string | null => {
   // Check if API Gateway mode is enabled
   if (isApiGatewayMode()) {
+    console.log('isApiGatewayMode', isApiGatewayMode());
+    console.log('isApiGatewayUrl', getApiGatewayUrl());
     return getApiGatewayUrl();
   }
   
@@ -39,6 +41,11 @@ apiClient.interceptors.request.use(
       
       // Get the correct service URL based on the path
       const serviceBaseUrl = getServiceUrl(fullUrl);
+      
+      console.log('=== API CLIENT: Routing request ===');
+      console.log('Original URL:', config.url);
+      console.log('Full URL:', fullUrl);
+      console.log('Service Base URL:', serviceBaseUrl);
       
       // Update baseURL for this request
       config.baseURL = serviceBaseUrl;

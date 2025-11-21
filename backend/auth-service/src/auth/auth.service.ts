@@ -27,6 +27,8 @@ export class AuthService {
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     // Check if user already exists
+    console.log('=== AUTH SERVICE: Register method called ===');
+    console.log('Register DTO:', JSON.stringify(dto, null, 2));
     const existingUser = await this.userRepository.findOne({
       where: { email: dto.email },
     });

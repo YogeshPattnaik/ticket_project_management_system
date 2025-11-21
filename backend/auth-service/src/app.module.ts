@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -17,5 +17,14 @@ import { RolesModule } from './roles/roles.module';
     RolesModule,
   ],
 })
-export class AppModule {}
+export class AppModule {
+  constructor(private configService: ConfigService) {
+    console.log('📦 AppModule initialized');
+    const postgresUrl = this.configService.get<string>('POSTGRES_URL');
+    console.log('📝 POSTGRES_URL configured:', postgresUrl ? 'YES' : 'NO');
+    if (postgresUrl) {
+      console.log('📝 POSTGRES_URL preview:', postgresUrl.substring(0, 30) + '...');
+    }
+  }
+}
 
