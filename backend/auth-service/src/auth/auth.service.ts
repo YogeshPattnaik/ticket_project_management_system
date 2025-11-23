@@ -7,6 +7,8 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../entities/user.entity';
 import { Organization } from '../entities/organization.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
+import { Role } from '../entities/role.entity';
+import { UserRole } from '../entities/user-role.entity';
 import { LoginDto, RegisterDto, AuthResponseDto } from '@task-management/dto';
 import { Logger } from '@task-management/utils';
 
@@ -21,14 +23,16 @@ export class AuthService {
     private organizationRepository: Repository<Organization>,
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(Role)
+    private roleRepository: Repository<Role>,
+    @InjectRepository(UserRole)
+    private userRoleRepository: Repository<UserRole>,
     private jwtService: JwtService,
     private configService: ConfigService
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     // Check if user already exists
-    console.log('=== AUTH SERVICE: Register method called ===');
-    console.log('Register DTO:', JSON.stringify(dto, null, 2));
     const existingUser = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -42,6 +46,7 @@ export class AuthService {
 
     // Create or get organization
     let organization;
+    let isNewOrganization = false;
     if (dto.organizationName) {
       organization = await this.organizationRepository.findOne({
         where: { name: dto.organizationName },
@@ -51,6 +56,7 @@ export class AuthService {
           name: dto.organizationName,
         });
         organization = await this.organizationRepository.save(organization);
+        isNewOrganization = true;
       }
     } else {
       // Create default organization
@@ -58,7 +64,19 @@ export class AuthService {
         name: `${dto.email.split('@')[0]} Organization`,
       });
       organization = await this.organizationRepository.save(organization);
+      isNewOrganization = true;
     }
+
+    // Create default roles for organization if it's new
+    if (isNewOrganization) {
+      await this.createDefaultRoles(organization.id);
+    }
+
+    // Check if this is the first user in the organization
+    const existingUsers = await this.userRepository.count({
+      where: { organizationId: organization.id },
+    });
+    const isFirstUser = existingUsers === 0;
 
     // Create user
     const user = this.userRepository.create({
@@ -68,6 +86,20 @@ export class AuthService {
       organizationId: organization.id,
     });
     const savedUser = await this.userRepository.save(user);
+
+    // Assign role: superadmin if first user, responder otherwise
+    const roleName = isFirstUser ? 'superadmin' : 'responder';
+    const role = await this.roleRepository.findOne({
+      where: { name: roleName, organizationId: organization.id },
+    });
+
+    if (role) {
+      const userRole = this.userRoleRepository.create({
+        userId: savedUser.id,
+        roleId: role.id,
+      });
+      await this.userRoleRepository.save(userRole);
+    }
 
     // Load user with relations
     const userWithRelations = await this.userRepository.findOne({
@@ -205,5 +237,41 @@ export class AuthService {
     });
 
     return await this.refreshTokenRepository.save(refreshToken);
+  }
+
+  private async createDefaultRoles(organizationId: string): Promise<void> {
+    // Check if roles already exist
+    const existingRoles = await this.roleRepository.count({
+      where: { organizationId },
+    });
+
+    if (existingRoles > 0) {
+      return; // Roles already exist
+    }
+
+    // Create superadmin role
+    const superadminRole = this.roleRepository.create({
+      name: 'superadmin',
+      permissions: [
+        { resource: '*', actions: ['*'] }, // All permissions
+      ],
+      hierarchy: 100, // Highest hierarchy
+      organizationId,
+    });
+    await this.roleRepository.save(superadminRole);
+
+    // Create responder role
+    const responderRole = this.roleRepository.create({
+      name: 'responder',
+      permissions: [
+        { resource: 'tasks', actions: ['read', 'create', 'update'] },
+        { resource: 'comments', actions: ['read', 'create'] },
+      ],
+      hierarchy: 10, // Lower hierarchy
+      organizationId,
+    });
+    await this.roleRepository.save(responderRole);
+
+    this.logger.info(`Default roles created for organization ${organizationId}`);
   }
 }

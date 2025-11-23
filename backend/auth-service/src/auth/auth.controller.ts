@@ -2,19 +2,23 @@ import { Controller, Post, Body, HttpCode, HttpStatus, Get } from '@nestjs/commo
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, AuthResponseDto } from '@task-management/dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Organization } from '../entities/organization.entity';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {
-    console.log('🔧 AuthController initialized');
-  }
+  constructor(
+    private readonly authService: AuthService,
+    @InjectRepository(Organization)
+    private organizationRepository: Repository<Organization>
+  ) {}
 
   @Get('health')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Health check endpoint' })
   healthCheck() {
-    console.log('🏥 Health check endpoint hit');
     return { status: 'ok', service: 'auth-service', timestamp: new Date().toISOString() };
   }
 
@@ -24,19 +28,7 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 401, description: 'User already exists' })
   async register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
-    console.log('========================================');
-    console.log('🎯 AUTH CONTROLLER: Register endpoint HIT!');
-    console.log('📥 Register DTO received:', JSON.stringify(dto, null, 2));
-    console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log('========================================');
-    try {
-      const result = await this.authService.register(dto);
-      console.log('✅ Register successful, returning response');
-      return result;
-    } catch (error) {
-      console.error('❌ Register failed:', error);
-      throw error;
-    }
+    return this.authService.register(dto);
   }
 
   @Post('login')
@@ -65,6 +57,17 @@ export class AuthController {
   @ApiResponse({ status: 204, description: 'Logout successful' })
   async logout(@Body('refreshToken') refreshToken: string): Promise<void> {
     return this.authService.logout(refreshToken);
+  }
+
+  @Get('organizations')
+  @ApiOperation({ summary: 'Get all organizations' })
+  @ApiResponse({ status: 200, description: 'Organizations retrieved successfully' })
+  async getOrganizations(): Promise<{ id: string; name: string }[]> {
+    const organizations = await this.organizationRepository.find({
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+    return organizations;
   }
 }
 

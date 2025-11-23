@@ -1,15 +1,12 @@
-'use client';
-
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '@/store/store';
-import { logout } from '@/store/slices/authSlice';
+import { RootState } from '../store';
+import { logout } from '../store/slices/authSlice';
 
 export function Header() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
   const [mounted, setMounted] = useState(false);
@@ -25,7 +22,7 @@ export function Header() {
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     }
-    router.push('/');
+    navigate('/');
   };
 
   // Prevent hydration mismatch
@@ -35,7 +32,7 @@ export function Header() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
-              <Link href="/" className="text-xl font-bold text-gray-900">
+              <Link to="/" className="text-xl font-bold text-gray-900">
                 Task Management
               </Link>
             </div>
@@ -49,19 +46,19 @@ export function Header() {
   }
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <header className="shell-header bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/" className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">
+            <Link to="/" className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">
               Task Management
             </Link>
             {isAuthenticated && (
               <nav className="hidden md:flex space-x-4">
                 <Link
-                  href="/dashboard"
+                  to="/dashboard"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    pathname === '/dashboard'
+                    location.pathname === '/dashboard'
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
@@ -69,9 +66,9 @@ export function Header() {
                   Dashboard
                 </Link>
                 <Link
-                  href="/dashboard?mfe=workspace"
+                  to="/dashboard?mfe=workspace"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    pathname?.includes('workspace')
+                    location.pathname?.includes('workspace')
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
@@ -79,25 +76,27 @@ export function Header() {
                   Workspace
                 </Link>
                 <Link
-                  href="/dashboard?mfe=analytics"
+                  to="/dashboard?mfe=analytics"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    pathname?.includes('analytics')
+                    location.pathname?.includes('analytics')
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
                   Analytics
                 </Link>
-                <Link
-                  href="/dashboard?mfe=admin"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    pathname?.includes('admin')
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  Admin
-                </Link>
+                {user?.roles?.some((role: any) => role.name === 'superadmin') && (
+                  <Link
+                    to="/dashboard?mfe=admin"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition ${
+                      location.pathname?.includes('admin')
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    Admin
+                  </Link>
+                )}
               </nav>
             )}
           </div>
@@ -117,13 +116,13 @@ export function Header() {
             ) : (
               <>
                 <Link
-                  href="/auth?mode=login"
+                  to="/auth?mode=login"
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition"
                 >
                   Login
                 </Link>
                 <Link
-                  href="/auth?mode=register"
+                  to="/auth?mode=register"
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition"
                 >
                   Sign Up
@@ -136,4 +135,3 @@ export function Header() {
     </header>
   );
 }
-

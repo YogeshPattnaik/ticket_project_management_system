@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Button, Input } from '@task-management/shared-ui';
 import { useAuth } from '@task-management/shared-ui';
@@ -27,8 +25,17 @@ export function Login() {
       localStorage.setItem('refreshToken', refreshToken);
       login(user, accessToken);
       
-      // Redirect to dashboard
-      window.location.href = '/dashboard';
+      // Check if user is super admin and redirect accordingly
+      const isSuperAdmin = user?.roles?.some((role: any) => role.name === 'superadmin');
+      // Use window.location to trigger a full page navigation
+      // This ensures the shell app's router picks up the change
+      if (isSuperAdmin) {
+        // Super admin goes to admin dashboard
+        window.location.href = '/dashboard?mfe=admin';
+      } else {
+        // Regular user goes to workspace
+        window.location.href = '/dashboard';
+      }
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Login failed');
     } finally {

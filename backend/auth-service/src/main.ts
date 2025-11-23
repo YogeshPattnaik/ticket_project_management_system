@@ -4,72 +4,99 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { Logger } from '@task-management/utils';
 
-console.log('=== MAIN: Starting Auth Service ===');
-console.log('⏰ Timestamp:', new Date().toISOString());
-console.log('📝 Process PID:', process.pid);
-
 async function bootstrap(): Promise<void> {
   try {
-    console.log('🚀 Starting Auth Service...');
     const port = process.env.PORT || 8001;
-    console.log(`📌 Auth Service will run on port: ${port}`);
-    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-    
-    console.log('📦 Creating NestJS application...');
-    console.log('⏱️  Starting app creation at:', new Date().toISOString());
-    
-    // Create app with minimal logging to see what's happening
-    const app = await NestFactory.create(AppModule, {
-      logger: false, // Disable NestJS logger temporarily to see our logs
-    });
-    
-    console.log('✅ NestJS application created successfully at:', new Date().toISOString());
-    
     const logger = new Logger('AuthService');
 
-  // Global prefix for API versioning
-  app.setGlobalPrefix('api/v1');
+    // Suppress TypeORM connection errors during initialization
+    const originalErrorHandler = process.listeners('unhandledRejection');
+    process.removeAllListeners('unhandledRejection');
 
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    })
-  );
+    process.on('unhandledRejection', (reason: any) => {
+      // Ignore database connection errors during startup
+      if (
+        reason?.code === 'ENOTFOUND' &&
+        reason?.hostname?.includes('supabase')
+      ) {
+        return;
+      }
+      // Log other unhandled rejections
+      console.error('Unhandled rejection:', reason);
+    });
 
-  // CORS configuration
-  app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-    credentials: true,
-  });
+    let app;
+    try {
+      app = (await Promise.race([
+        NestFactory.create(AppModule, {
+          logger: ['error', 'warn', 'log'],
+          abortOnError: false, // Don't abort on errors - allows service to start even if DB fails
+        }),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('App creation timeout after 10 seconds')),
+            10000
+          )
+        ),
+      ])) as any;
+    } catch (error: any) {
+      // If it's a database error, log and continue anyway
+      if (
+        error?.code === 'ENOTFOUND' ||
+        error?.message?.includes('database') ||
+        error?.message?.includes('ENOTFOUND')
+      ) {
+        // Create app anyway - TypeORM will retry on first query
+        app = await NestFactory.create(AppModule, {
+          logger: ['error', 'warn', 'log'],
+          abortOnError: false,
+        });
+      } else {
+        throw error;
+      }
+    } finally {
+      // Restore original error handlers
+      process.removeAllListeners('unhandledRejection');
+      originalErrorHandler.forEach((handler) =>
+        process.on('unhandledRejection', handler as any)
+      );
+    }
 
-  // Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle('Auth Service API')
-    .setDescription('Authentication and authorization service')
-    .setVersion('1.0.0')
-    .addBearerAuth()
-    .addTag('auth')
-    .addTag('users')
-    .addTag('roles')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+    // Global prefix for API versioning
+    app.setGlobalPrefix('api/v1');
 
-    console.log('🌐 Starting HTTP server...');
+    // Global validation pipe
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      })
+    );
+
+    // CORS configuration
+    app.enableCors({
+      origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+      credentials: true,
+    });
+
+    // Swagger documentation
+    const config = new DocumentBuilder()
+      .setTitle('Auth Service API')
+      .setDescription('Authentication and authorization service')
+      .setVersion('1.0.0')
+      .addBearerAuth()
+      .addTag('auth')
+      .addTag('users')
+      .addTag('roles')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+
     await app.listen(port);
-    
-    logger.info(`✅ Auth service is running on port ${port}`);
-    console.log('========================================');
-    console.log(`✅ Auth service is running on port ${port}`);
-    console.log(`🌐 API available at: http://localhost:${port}/api/v1`);
-    console.log(`🔗 Register endpoint: http://localhost:${port}/api/v1/auth/register`);
-    console.log(`📋 Swagger docs: http://localhost:${port}/api/docs`);
-    console.log('========================================');
+    logger.info(`Auth service is running on port ${port}`);
   } catch (error) {
-    console.error('❌ Failed to start auth service:', error);
+    console.error('Failed to start auth service:', error);
     if (error instanceof Error) {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
@@ -82,4 +109,3 @@ bootstrap().catch((error) => {
   console.error('Failed to start auth service:', error);
   process.exit(1);
 });
-

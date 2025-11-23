@@ -1,0 +1,24 @@
+/* Shell App - Scoped CSS for shell components only */
+/* This does NOT affect MFEs - each MFE has its own CSS */
+
+.shell-app-container {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Shell app header styles */
+.shell-header {
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Shell app page styles */
+.shell-page {
+  min-height: calc(100vh - 64px);
+  background-color: #f9fafb;
+}
+

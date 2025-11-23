@@ -12,6 +12,14 @@ export class SqlVersionTrackerService implements IVersionTracker, OnModuleInit {
   constructor(private configService: ConfigService) {
     this.pool = new Pool({
       connectionString: this.configService.get<string>('POSTGRES_URL'),
+      max: 5, // Limit connections to avoid overwhelming Supabase
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
+
+    // Handle pool errors gracefully
+    this.pool.on('error', (err) => {
+      this.logger.error('Unexpected error on idle client', err);
     });
   }
 
@@ -67,6 +75,11 @@ export class SqlVersionTrackerService implements IVersionTracker, OnModuleInit {
       return result.rows[0]?.version || null;
     } catch (error) {
       this.logger.error('Failed to get current version', error as Error);
+      // If it's a connection error, log but don't crash
+      if ((error as any).code === 'XX000' || (error as any).code === '57P01') {
+        this.logger.warn('Database connection terminated, returning null');
+        return null;
+      }
       throw error;
     }
   }
@@ -99,6 +112,11 @@ export class SqlVersionTrackerService implements IVersionTracker, OnModuleInit {
       this.logger.info(`Recorded migration ${migration.version}`);
     } catch (error) {
       this.logger.error('Failed to record migration', error as Error);
+      // If it's a connection error, log but don't crash the service
+      if ((error as any).code === 'XX000' || (error as any).code === '57P01') {
+        this.logger.warn('Database connection terminated, migration record may be lost');
+        return; // Don't throw, allow service to continue
+      }
       throw error;
     }
   }

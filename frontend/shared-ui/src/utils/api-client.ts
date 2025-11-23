@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { getServiceUrl, isApiGatewayMode, getApiGatewayUrl } from './service-router';
+import { getCookie, setCookie, deleteCookie } from './cookies';
 
 // Get API Gateway URL if enabled, otherwise use dynamic routing
 const getApiBaseUrl = (): string | null => {
@@ -26,8 +27,8 @@ export const apiClient: AxiosInstance = axios.create({
 // Request interceptor to add auth token and route to correct service
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Add auth token
-    const token = localStorage.getItem('accessToken');
+    // Add auth token from cookie (fallback to localStorage for backward compatibility)
+    const token = getCookie('accessToken') || localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -74,7 +75,7 @@ apiClient.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       // Token expired, try to refresh
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = getCookie('refreshToken') || localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
           // Use dynamic routing for refresh endpoint
@@ -83,12 +84,18 @@ apiClient.interceptors.response.use(
             refreshToken,
           });
           const { accessToken } = response.data;
+          // Store in both cookie and localStorage for backward compatibility
+          setCookie('accessToken', accessToken, 7);
           localStorage.setItem('accessToken', accessToken);
           if (error.config) {
             error.config.headers.Authorization = `Bearer ${accessToken}`;
             return apiClient.request(error.config);
           }
         } catch (refreshError) {
+          // Clear both cookies and localStorage
+          deleteCookie('accessToken');
+          deleteCookie('refreshToken');
+          deleteCookie('user');
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');

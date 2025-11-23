@@ -1,0 +1,23 @@
+/* Shell App - Tailwind CSS for shell components only */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Shell App - Scoped CSS only for shell components */
+/* Each MFE has its own isolated CSS */
+
+/* Only reset for shell app container */
+#root {
+  margin: 0;
+  padding: 0;
+}
+
+/* Shell app specific styles only */
+.shell-app-container {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+

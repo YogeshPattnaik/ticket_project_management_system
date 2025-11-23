@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
+import { Role } from '../entities/role.entity';
+import { UserRole } from '../entities/user-role.entity';
 import { CreateUserDto, UpdateUserDto, UserDto } from '@task-management/dto';
 import { Logger } from '@task-management/utils';
 import * as bcrypt from 'bcrypt';
@@ -12,7 +14,11 @@ export class UsersService {
 
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>
+    private userRepository: Repository<User>,
+    @InjectRepository(Role)
+    private roleRepository: Repository<Role>,
+    @InjectRepository(UserRole)
+    private userRoleRepository: Repository<UserRole>
   ) {}
 
   async create(dto: CreateUserDto): Promise<UserDto> {
@@ -104,6 +110,50 @@ export class UsersService {
     await this.userRepository.remove(user);
 
     this.logger.info(`User deleted: ${user.email}`);
+  }
+
+  async updateUserRoles(userId: string, roleIds: string[], organizationId: string): Promise<UserDto> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, organizationId },
+      relations: ['userRoles', 'userRoles.role'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify all roles belong to the same organization
+    const roles = await this.roleRepository
+      .createQueryBuilder('role')
+      .where('role.id IN (:...roleIds)', { roleIds })
+      .andWhere('role.organizationId = :organizationId', { organizationId })
+      .getMany();
+
+    if (roles.length !== roleIds.length) {
+      throw new NotFoundException('One or more roles not found in organization');
+    }
+
+    // Remove existing roles
+    await this.userRoleRepository.delete({ userId });
+
+    // Assign new roles
+    for (const roleId of roleIds) {
+      const userRole = this.userRoleRepository.create({
+        userId,
+        roleId,
+      });
+      await this.userRoleRepository.save(userRole);
+    }
+
+    // Load user with updated relations
+    const userWithRelations = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['userRoles', 'userRoles.role'],
+    });
+
+    this.logger.info(`Roles updated for user ${user.email}`);
+
+    return this.mapUserToDto(userWithRelations || user);
   }
 
   private mapUserToDto(user: User): UserDto {

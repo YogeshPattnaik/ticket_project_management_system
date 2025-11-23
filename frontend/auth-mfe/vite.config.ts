@@ -1,40 +1,30 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-
-// Module Federation - dynamic import to handle different export styles
-let federationPlugin: any;
-try {
-  const mfModule = require('@module-federation/vite');
-  federationPlugin = mfModule.default || mfModule.federation || mfModule;
-} catch (e) {
-  console.warn('Module federation not available, running without it');
-  federationPlugin = () => ({ name: 'noop-federation' });
-}
+import { federation } from '@module-federation/vite';
 
 export default defineConfig({
   plugins: [
     react(),
-    typeof federationPlugin === 'function' 
-      ? federationPlugin({
-          name: 'authMfe',
-          filename: 'remoteEntry.js',
-          exposes: {
-            './Login': './src/components/Login',
-            './Register': './src/components/Register',
-            './Profile': './src/components/Profile',
-          },
-          shared: {
-            react: {
-              singleton: true,
-              requiredVersion: '^19.0.0',
-            },
-            'react-dom': {
-              singleton: true,
-              requiredVersion: '^19.0.0',
-            },
-          },
-        })
-      : federationPlugin,
+    federation({
+      name: 'auth_mfe',
+      filename: 'remoteEntry.js',
+      runtimePlugins: [],
+      exposes: {
+        './App': './src/App.tsx',
+        './Login': './src/components/Login.tsx',
+        './Register': './src/components/Register.tsx',
+      },
+      shared: {
+        react: {
+          singleton: true,
+          requiredVersion: '^19.0.0',
+        },
+        'react-dom': {
+          singleton: true,
+          requiredVersion: '^19.0.0',
+        },
+      },
+    }),
   ],
   build: {
     target: 'esnext',
@@ -43,10 +33,16 @@ export default defineConfig({
   },
   server: {
     port: 3001,
-    // Allow proxying from shell app
     cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
   },
-  define: {
-    'process.env': '{}',
+  preview: {
+    port: 3001,
+    cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
   },
 });

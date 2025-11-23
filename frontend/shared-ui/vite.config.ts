@@ -19,7 +19,7 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['react', 'react-dom', '@tanstack/react-query', 'axios'],
+      external: ['react', 'react-dom', '@tanstack/react-query', 'axios', '@task-management/dto'],
       output: {
         globals: {
           react: 'React',

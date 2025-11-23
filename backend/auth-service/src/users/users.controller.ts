@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, UserDto } from '@task-management/dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { SuperAdminGuard } from '../auth/super-admin.guard';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -60,6 +61,23 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async remove(@Param('id') id: string): Promise<void> {
     return this.usersService.remove(id);
+  }
+
+  @Put(':id/roles')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({ summary: 'Update user roles (Super Admin only)' })
+  @ApiResponse({ status: 200, description: 'User roles updated successfully' })
+  @ApiResponse({ status: 403, description: 'Only super admins can update roles' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async updateRoles(
+    @Param('id') id: string,
+    @Body() body: { roleIds: string[] },
+    @Query('organizationId') organizationId: string
+  ): Promise<UserDto> {
+    if (!organizationId) {
+      throw new Error('organizationId is required');
+    }
+    return this.usersService.updateUserRoles(id, body.roleIds, organizationId);
   }
 }
 

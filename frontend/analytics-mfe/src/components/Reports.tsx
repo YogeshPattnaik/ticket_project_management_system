@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Card, Button } from '@task-management/shared-ui';
 import { useApi, useApiMutation } from '@task-management/shared-ui';

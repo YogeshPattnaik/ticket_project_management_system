@@ -10,6 +10,19 @@ module.exports = function (options, webpack) {
     output: {
       ...options.output,
       libraryTarget: 'commonjs2',
+      // Ensure the output is executable
+      pathinfo: true,
+      // Force webpack to output to a file so we can debug
+      filename: '[name].js',
+    },
+    // Add entry point explicitly
+    entry: options.entry || './src/main.ts',
+    // Add watch options to ensure code executes
+    watchOptions: {
+      ...options.watchOptions,
+      ignored: /node_modules/,
+      aggregateTimeout: 300,
+      poll: 1000,
     },
     plugins: [
       ...options.plugins,

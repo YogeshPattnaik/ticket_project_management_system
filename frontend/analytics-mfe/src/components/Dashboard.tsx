@@ -1,5 +1,3 @@
-'use client';
-
 import { useApi } from '@task-management/shared-ui';
 import { Card } from '@task-management/shared-ui';
 import {

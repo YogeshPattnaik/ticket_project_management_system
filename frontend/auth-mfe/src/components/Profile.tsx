@@ -1,4 +1,3 @@
-'use client';
 
 import { useState } from 'react';
 import { Button, Input, Card } from '@task-management/shared-ui';
