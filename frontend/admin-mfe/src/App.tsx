@@ -14,11 +14,23 @@ const queryClient = new QueryClient();
 type AdminPage = 'dashboard' | 'analytics' | 'users' | 'organizations' | 'roles' | 'settings' | 'projects' | 'kanban' | 'tasks' | 'workflows';
 
 function App() {
-  const [activePage, setActivePage] = useState<AdminPage>('dashboard');
+  // Initialize state from hash immediately (synchronously)
+  const getInitialPage = (): AdminPage => {
+    if (typeof window === 'undefined') return 'dashboard';
+    const hash = window.location.hash.replace('#', '');
+    const validPages: AdminPage[] = ['dashboard', 'analytics', 'users', 'organizations', 'roles', 'settings', 'projects', 'kanban', 'tasks', 'workflows'];
+    if (hash && validPages.includes(hash as AdminPage)) {
+      return hash as AdminPage;
+    }
+    return 'dashboard';
+  };
+
+  const [activePage, setActivePage] = useState<AdminPage>(getInitialPage());
 
   // Handle hash-based routing on mount and hash changes
   useEffect(() => {
     const updatePageFromHash = () => {
+      if (typeof window === 'undefined') return;
       const hash = window.location.hash.replace('#', '');
       const validPages: AdminPage[] = ['dashboard', 'analytics', 'users', 'organizations', 'roles', 'settings', 'projects', 'kanban', 'tasks', 'workflows'];
       if (hash && validPages.includes(hash as AdminPage)) {
@@ -30,7 +42,7 @@ function App() {
       }
     };
 
-    // Check hash on mount
+    // Check hash on mount (in case it changed during render)
     updatePageFromHash();
 
     // Listen for hash changes
