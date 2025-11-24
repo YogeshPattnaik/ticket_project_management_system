@@ -1,10 +1,12 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Req, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, AuthResponseDto } from '@task-management/dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Organization } from '../entities/organization.entity';
+import { Request, Response } from 'express';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -68,6 +70,61 @@ export class AuthController {
       order: { name: 'ASC' },
     });
     return organizations;
+  }
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Initiate Google OAuth login' })
+  async googleAuth() {
+    // Guard redirects to Google
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Google OAuth callback' })
+  async googleAuthRedirect(@Req() req: Request, @Res() res: Response) {
+    const googleUser = req.user as any;
+    const result = await this.authService.googleLogin(googleUser);
+
+    if (result.needsOrganization) {
+      // Redirect to frontend callback page (for popup)
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const params = new URLSearchParams({
+        email: googleUser.email,
+        firstName: googleUser.firstName || '',
+        lastName: googleUser.lastName || '',
+        picture: googleUser.picture || '',
+        action: 'signup',
+      });
+      return res.redirect(`${frontendUrl}/auth?${params.toString()}`);
+    }
+
+    // User exists, redirect with tokens (for popup callback)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const params = new URLSearchParams({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: JSON.stringify(result.user),
+    });
+    return res.redirect(`${frontendUrl}/auth?${params.toString()}`);
+  }
+
+  @Post('google/signup')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Complete Google signup with organization name' })
+  @ApiResponse({ status: 201, description: 'Google signup completed successfully' })
+  async googleSignup(
+    @Body() body: { email: string; firstName: string; lastName: string; picture: string; organizationName: string }
+  ): Promise<AuthResponseDto> {
+    return this.authService.googleSignup(
+      {
+        email: body.email,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        picture: body.picture,
+      },
+      body.organizationName
+    );
   }
 }
 

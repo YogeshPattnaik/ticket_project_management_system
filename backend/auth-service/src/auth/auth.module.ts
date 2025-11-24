@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { GoogleStrategy } from './google.strategy';
 import { User } from '../entities/user.entity';
 import { Organization } from '../entities/organization.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
@@ -27,7 +28,7 @@ import { Role } from '../entities/role.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

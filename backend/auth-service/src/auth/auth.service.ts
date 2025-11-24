@@ -274,4 +274,171 @@ export class AuthService {
 
     this.logger.info(`Default roles created for organization ${organizationId}`);
   }
+
+  async googleLogin(googleUser: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    picture: string;
+  }): Promise<{ user: any; accessToken: string; refreshToken: string; needsOrganization?: boolean }> {
+    // Check if user exists
+    let user = await this.userRepository.findOne({
+      where: { email: googleUser.email },
+      relations: ['userRoles', 'userRoles.role'],
+    });
+
+    if (!user) {
+      // User doesn't exist, return needsOrganization flag
+      return {
+        user: {
+          email: googleUser.email,
+          firstName: googleUser.firstName,
+          lastName: googleUser.lastName,
+          picture: googleUser.picture,
+        },
+        accessToken: '',
+        refreshToken: '',
+        needsOrganization: true,
+      };
+    }
+
+    // User exists, generate tokens and return
+    const accessToken = this.generateAccessToken(user);
+    const refreshToken = await this.generateRefreshToken(user.id);
+
+    this.logger.info(`Google login successful: ${user.email}`);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        profile: user.profile as Record<string, unknown>,
+        organizationId: user.organizationId,
+        roles: user.userRoles.map((ur) => ({
+          id: ur.role.id,
+          name: ur.role.name,
+          permissions: ur.role.permissions as any[],
+          hierarchy: ur.role.hierarchy,
+          organizationId: ur.role.organizationId,
+        })),
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      accessToken,
+      refreshToken: refreshToken.token,
+    };
+  }
+
+  async googleSignup(
+    googleUser: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      picture: string;
+    },
+    organizationName: string
+  ): Promise<AuthResponseDto> {
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email: googleUser.email },
+    });
+
+    if (existingUser) {
+      throw new UnauthorizedException('User with this email already exists');
+    }
+
+    // Create or get organization
+    let organization;
+    let isNewOrganization = false;
+    if (organizationName) {
+      organization = await this.organizationRepository.findOne({
+        where: { name: organizationName },
+      });
+      if (!organization) {
+        organization = this.organizationRepository.create({
+          name: organizationName,
+        });
+        organization = await this.organizationRepository.save(organization);
+        isNewOrganization = true;
+      }
+    } else {
+      // Create default organization
+      organization = this.organizationRepository.create({
+        name: `${googleUser.email.split('@')[0]} Organization`,
+      });
+      organization = await this.organizationRepository.save(organization);
+      isNewOrganization = true;
+    }
+
+    // Create default roles for organization if it's new
+    if (isNewOrganization) {
+      await this.createDefaultRoles(organization.id);
+    }
+
+    // Check if this is the first user in the organization
+    const existingUsers = await this.userRepository.count({
+      where: { organizationId: organization.id },
+    });
+    const isFirstUser = existingUsers === 0;
+
+    // Create user with Google profile info
+    const user = this.userRepository.create({
+      email: googleUser.email,
+      passwordHash: '', // No password for Google OAuth users
+      profile: {
+        firstName: googleUser.firstName,
+        lastName: googleUser.lastName,
+        picture: googleUser.picture,
+        provider: 'google',
+      },
+      organizationId: organization.id,
+    });
+    const savedUser = await this.userRepository.save(user);
+
+    // Assign role: superadmin if first user, responder otherwise
+    const roleName = isFirstUser ? 'superadmin' : 'responder';
+    const role = await this.roleRepository.findOne({
+      where: { name: roleName, organizationId: organization.id },
+    });
+
+    if (role) {
+      const userRole = this.userRoleRepository.create({
+        userId: savedUser.id,
+        roleId: role.id,
+      });
+      await this.userRoleRepository.save(userRole);
+    }
+
+    // Load user with relations
+    const userWithRelations = await this.userRepository.findOne({
+      where: { id: savedUser.id },
+      relations: ['userRoles', 'userRoles.role'],
+    });
+
+    // Generate tokens
+    const accessToken = this.generateAccessToken(savedUser);
+    const refreshToken = await this.generateRefreshToken(savedUser.id);
+
+    this.logger.info(`Google signup successful: ${savedUser.email}`);
+
+    return {
+      user: {
+        id: savedUser.id,
+        email: savedUser.email,
+        profile: savedUser.profile as Record<string, unknown>,
+        organizationId: savedUser.organizationId,
+        roles: (userWithRelations?.userRoles || []).map((ur) => ({
+          id: ur.role.id,
+          name: ur.role.name,
+          permissions: ur.role.permissions as any[],
+          hierarchy: ur.role.hierarchy,
+          organizationId: ur.role.organizationId,
+        })),
+        createdAt: savedUser.createdAt,
+        updatedAt: savedUser.updatedAt,
+      },
+      accessToken,
+      refreshToken: refreshToken.token,
+    };
+  }
 }

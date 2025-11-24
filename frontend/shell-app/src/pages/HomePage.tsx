@@ -23,7 +23,7 @@ export default function HomePage() {
         <main className="container mx-auto px-4 py-16">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-5xl font-bold text-gray-900 mb-6">
-              Enterprise Task Management System
+              Sarso
             </h1>
             <p className="text-xl text-gray-600 mb-8">
               Streamline your workflow, boost productivity, and manage projects with ease

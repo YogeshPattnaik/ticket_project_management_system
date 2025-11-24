@@ -6,11 +6,7 @@
 /* Auth MFE - Scoped CSS only */
 /* All styles scoped to auth-mfe container to prevent leakage */
 
-.auth-mfe-container,
-.auth-mfe-container * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+.auth-mfe-container {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -18,10 +14,84 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.auth-mfe-container * {
+  box-sizing: border-box;
+}
+
 .auth-mfe-container {
   width: 100%;
   height: 100%;
   min-height: 100vh;
-  background-color: #f5f5f5;
+}
+
+/* Split layout for auth pages */
+.auth-split-layout {
+  display: flex !important;
+  min-height: 100vh !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: relative;
+}
+
+.auth-form-section {
+  flex: 0 0 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 3rem !important;
+  background: white !important;
+  min-height: 100vh !important;
+  width: 50% !important;
+}
+
+.auth-image-section {
+  flex: 0 0 50% !important;
+  background-color: #f0f0f0 !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  position: relative !important;
+  min-height: 100vh !important;
+  width: 50% !important;
+  display: block !important;
+  z-index: 0 !important;
+}
+
+/* Fallback gradient - only visible if background image fails to load */
+.auth-image-section::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Show fallback only if image fails to load (handled by onError in component) */
+.auth-image-section[data-image-error="true"]::after {
+  opacity: 1;
+}
+
+@media (max-width: 1024px) {
+  .auth-split-layout {
+    flex-direction: column !important;
+  }
+  
+  .auth-form-section {
+    flex: 1 !important;
+    min-height: 60vh !important;
+    width: 100% !important;
+  }
+  
+  .auth-image-section {
+    flex: 1 !important;
+    min-height: 40vh !important;
+    width: 100% !important;
+  }
 }
 

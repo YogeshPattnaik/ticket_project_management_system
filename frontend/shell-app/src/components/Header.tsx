@@ -31,9 +31,14 @@ export function Header() {
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <Link to="/" className="text-xl font-bold text-gray-900">
-                Task Management
+            <div className="flex items-center space-x-3">
+              <Link to="/" className="flex items-center space-x-2">
+                <img 
+                  src="/logo.png" 
+                  alt="Sarso Logo" 
+                  className="h-8 w-auto object-contain"
+                />
+                <span className="text-xl font-bold text-gray-900">Sarso</span>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -49,9 +54,14 @@ export function Header() {
     <header className="shell-header bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-8">
-            <Link to="/" className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">
-              Task Management
+          <div className="flex items-center space-x-3">
+            <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition">
+              <img 
+                src="/logo.png" 
+                alt="Sarso Logo" 
+                className="h-8 w-auto object-contain"
+              />
+              <span className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">Sarso</span>
             </Link>
             {isAuthenticated && (
               <nav className="hidden md:flex space-x-4">

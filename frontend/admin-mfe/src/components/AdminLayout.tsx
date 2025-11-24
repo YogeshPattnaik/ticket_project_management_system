@@ -158,11 +158,13 @@ export function AdminLayout({ children, activePage, setActivePage }: AdminLayout
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between z-50">
         {/* Left: Logo and Title */}
         <div className="flex items-center space-x-4">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">TM</span>
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="Sarso Logo" 
+            className="w-10 h-10 object-contain"
+          />
           <div>
-            <h1 className="text-lg font-bold text-white">Task Management</h1>
+            <h1 className="text-lg font-bold text-white">Sarso</h1>
             <p className="text-xs text-gray-400">Admin Dashboard</p>
           </div>
         </div>
@@ -230,7 +232,7 @@ export function AdminLayout({ children, activePage, setActivePage }: AdminLayout
           <div className="p-6 border-b border-gray-800">
             <div className="flex items-center justify-center">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">TM</span>
+                <span className="text-white font-bold text-lg">S</span>
               </div>
             </div>
           </div>
@@ -313,7 +315,7 @@ export function AdminLayout({ children, activePage, setActivePage }: AdminLayout
               </svg>
             </button>
             <p className="text-xs text-gray-500 text-center mt-4">
-              Task Management System © 2024<br />
+              Sarso © 2024<br />
               All Rights Reserved
             </p>
           </div>
